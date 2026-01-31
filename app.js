@@ -22,20 +22,20 @@ app.use(
   cors({
     origin: [
       "http://localhost:3000",
-      "https://radnus-ecommerce-frontend.vercel.app" // future frontend deploy
+      "https://radnus-ecommercefrontend.vercel.app"
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE"],
   })
 );
+;
 
 
 app.use(express.json());
 app.use(cookieParser());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-const user = require('./routes/userRoute');
-const product = require('./routes/productRoute');
+const user = require('./routes/userRoute');;
 const order = require('./routes/orderRoute');
 const payment = require('./routes/paymentRoute');
 const walletRoute = require("./routes/walletRoute");
@@ -48,7 +48,6 @@ app.use("/api/v1", productRoutes);
 app.use("/api/v1", adminwallet);
 app.use("/api/v1", walletRoute);
 app.use('/api/v1', user);
-app.use('/api/v1', product);
 app.use('/api/v1', order);
 app.use('/api/v1', payment);
 app.use("/api/v1", reviewRoutes);
