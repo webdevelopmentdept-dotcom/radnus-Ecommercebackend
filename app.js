@@ -5,6 +5,8 @@ const errorMiddleware = require('./middlewares/error');
 const path = require("path");
 const reviewRoutes = require("./routes/reviewRoute");
 const app = express();
+const cors = require("cors");
+
 
 app.use(
   "/uploads",
@@ -15,6 +17,18 @@ app.use(
 if (process.env.NODE_ENV !== 'production') {
     require('dotenv').config({ path: 'backend/config/config.env' });
 }
+
+app.use(
+  cors({
+    origin: [
+      "http://localhost:3000",
+      "https://radnus-ecommerce-frontend.vercel.app" // future frontend deploy
+    ],
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE"],
+  })
+);
+
 
 app.use(express.json());
 app.use(cookieParser());
