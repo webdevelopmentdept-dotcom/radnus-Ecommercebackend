@@ -109,20 +109,22 @@ exports.createProduct = asyncErrorHandler(async (req, res, next) => {
     }
 
     // ---------- PRODUCT IMAGES ----------
-    const images = req.files.images.map((file) => ({
-        public_id: file.filename,
-        url: `/uploads/products/${file.filename}`,
-    }));
+ const images = req.files.images.map((file) => ({
+  public_id: file.filename,
+  url: `${req.protocol}://${req.get("host")}/uploads/products/${file.filename}`,
+}));
+
 
     // ---------- BRAND LOGO ----------
     const logoFile = req.files.logo[0];
     req.body.brand = {
-        name: req.body.brand,
-        logo: {
-            public_id: logoFile.filename,
-            url: `/uploads/brands/${logoFile.filename}`,
-        },
-    };
+  name: req.body.brand,
+  logo: {
+    public_id: logoFile.filename,
+    url: `${req.protocol}://${req.get("host")}/uploads/brands/${logoFile.filename}`,
+  },
+};
+
 
     // ---------- HIGHLIGHTS ----------
     if (req.body.highlights) {
