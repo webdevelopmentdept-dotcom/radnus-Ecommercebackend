@@ -1,39 +1,33 @@
-const path = require("path");
 const express = require("express");
 const cloudinary = require("cloudinary");
-const dotenv = require("dotenv");
-
-dotenv.config({ path: "./config/config.env" });
 
 const app = require("./app");
 const connectDatabase = require("./config/database");
 
+// 🔹 Connect DB
 connectDatabase();
 
-if (process.env.NODE_ENV === 'production') {
-  cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-  });
+// 🔹 Cloudinary config (Render env vars)
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
-  app.use(express.static(path.join(__dirname, 'frontend/build')));
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'frontend', 'build', 'index.html'));
-  });
-} else {
-  app.get('/', (req, res) => {
-    res.send('Server is Running! 🚀');
-  });
-}
+// 🔹 Health check route
+app.get("/", (req, res) => {
+  res.send("Backend is running 🚀");
+});
 
+// 🔹 Port (Render assigns automatically)
 const PORT = process.env.PORT || 5000;
 
 const server = app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
 
-process.on('unhandledRejection', (err) => {
-  console.log(`Error: ${err.message}`);
+// 🔹 Handle unhandled promise rejections
+process.on("unhandledRejection", (err) => {
+  console.error(`Error: ${err.message}`);
   server.close(() => process.exit(1));
 });
