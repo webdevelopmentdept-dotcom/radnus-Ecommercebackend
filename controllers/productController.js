@@ -111,7 +111,7 @@ exports.createProduct = asyncErrorHandler(async (req, res, next) => {
     // ---------- PRODUCT IMAGES ----------
  const images = req.files.images.map((file) => ({
   public_id: file.filename,
-  url: `${req.protocol}://${req.get("host")}/uploads/products/${file.filename}`,
+url: `/uploads/products/${file.filename}`,
 }));
 
 
@@ -121,7 +121,8 @@ exports.createProduct = asyncErrorHandler(async (req, res, next) => {
   name: req.body.brand,
   logo: {
     public_id: logoFile.filename,
-    url: `${req.protocol}://${req.get("host")}/uploads/brands/${logoFile.filename}`,
+    url: `/uploads/brands/${logoFile.filename}`,
+
   },
 };
 
@@ -189,10 +190,9 @@ exports.updateProduct = asyncErrorHandler(async (req, res, next) => {
     );
   }
 
- // ===== REPLACE IMAGES IF NEW IMAGES UPLOADED =====
 if (req.files && req.files.images) {
 
-  // 🔥 delete all existing images from disk
+  // old images delete
   if (Array.isArray(product.images)) {
     for (let img of product.images) {
       const imgPath = path.join(__dirname, "..", img.url);
@@ -200,11 +200,13 @@ if (req.files && req.files.images) {
     }
   }
 
-  // 🔥 replace with new images ONLY
-  let images = [];
-
-
+  // new images save
+  product.images = req.files.images.map((file) => ({
+    public_id: file.filename,
+    url: `/uploads/products/${file.filename}`,
+  }));
 }
+
 
 
   // ===== UPDATE LOGO =====
