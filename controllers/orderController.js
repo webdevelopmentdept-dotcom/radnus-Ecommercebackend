@@ -187,9 +187,12 @@ exports.deleteOrder = asyncErrorHandler(async (req, res, next) => {
     return next(new ErrorHandler("Order Not Found", 404));
   }
 
-  await order.remove();
+  await Order.findByIdAndDelete(req.params.id); // ✅ Mongoose v6+ safe
 
   res.status(200).json({
     success: true,
+    message: "Order deleted successfully",
   });
 });
+
+

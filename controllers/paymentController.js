@@ -3,10 +3,12 @@ const crypto = require("crypto");
 const asyncErrorHandler = require("../middlewares/asyncErrorHandler");
 const Payment = require("../models/paymentModel");
 
-const razorpay = new Razorpay({
+
+  const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
+  key_secret: process.env.RAZORPAY_KEY_SECRET, // ✅ CORRECT
 });
+
 
 // 1️⃣ CREATE ORDER
 exports.processPayment = async (req, res) => {
@@ -47,21 +49,34 @@ exports.processPayment = async (req, res) => {
 
 
 // 2️⃣ VERIFY PAYMENT
-exports.verifyPayment = asyncErrorHandler(async (req, res) => {
+exports.verifyPayment = async (req, res) => {
+  console.log("🔥 VERIFY BODY:", req.body);
+  console.log("🔥 SECRET:", process.env.RAZORPAY_KEY_SECRET);
+
   const {
     razorpay_order_id,
     razorpay_payment_id,
     razorpay_signature,
   } = req.body;
 
+  if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+    console.log("❌ Missing razorpay fields");
+    return res.status(400).json({ success: false });
+  }
+
   const body = razorpay_order_id + "|" + razorpay_payment_id;
+  console.log("🔥 SIGN STRING:", body);
 
   const expectedSignature = crypto
     .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
     .update(body)
     .digest("hex");
 
+  console.log("🔥 EXPECTED:", expectedSignature);
+  console.log("🔥 RECEIVED:", razorpay_signature);
+
   if (expectedSignature !== razorpay_signature) {
+    console.log("❌ SIGNATURE MISMATCH");
     return res.status(400).json({ success: false });
   }
 
@@ -72,4 +87,4 @@ exports.verifyPayment = asyncErrorHandler(async (req, res) => {
   });
 
   res.status(200).json({ success: true });
-});
+};
