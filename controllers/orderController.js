@@ -6,23 +6,24 @@ const sendEmail = require("../utils/sendEmail");
 
 // CREATE NEW ORDER
 exports.newOrder = asyncErrorHandler(async (req, res, next) => {
-  const {
-    shippingInfo,
-    orderItems,
-    paymentInfo,
-    totalPrice,
-  } = req.body;
+  const { shippingInfo, orderItems, paymentInfo, totalPrice } = req.body;
 
-  if (!shippingInfo || !orderItems || orderItems.length === 0) {
-    return next(new ErrorHandler("Invalid Order Data", 400));
+  if (!req.user) {
+    return next(new ErrorHandler("User not authenticated", 401));
   }
 
-  // 🔥 COD support
+  if (!shippingInfo || !shippingInfo.address) {
+    return next(new ErrorHandler("Shipping address missing", 400));
+  }
+
+  if (!orderItems || orderItems.length === 0) {
+    return next(new ErrorHandler("No order items", 400));
+  }
+
   let paidAt = null;
   let paymentStatus = "Pending";
 
   if (paymentInfo && paymentInfo.id !== "COD") {
-    // Online payment
     paidAt = Date.now();
     paymentStatus = "Paid";
   }
@@ -30,28 +31,14 @@ exports.newOrder = asyncErrorHandler(async (req, res, next) => {
   const order = await Order.create({
     shippingInfo,
     orderItems,
-   paymentInfo: paymentInfo || {
-  id: `COD_${Date.now()}`, // 🔥 UNIQUE
-  status: "Cash On Delivery",
-},
-
+    paymentInfo: paymentInfo || {
+      id: `COD_${Date.now()}`,
+      status: "Cash On Delivery",
+    },
     totalPrice,
     paidAt,
     paymentStatus,
     user: req.user._id,
-  });
-
-  // Email send (optional)
-  await sendEmail({
-    email: req.user.email,
-    templateId: process.env.SENDGRID_ORDER_TEMPLATEID,
-    data: {
-      name: req.user.name,
-      shippingInfo,
-      orderItems,
-      totalPrice,
-      oid: order._id,
-    },
   });
 
   res.status(201).json({
@@ -59,6 +46,7 @@ exports.newOrder = asyncErrorHandler(async (req, res, next) => {
     order,
   });
 });
+
 
 // GET SINGLE ORDER
 exports.getSingleOrderDetails = asyncErrorHandler(async (req, res, next) => {
