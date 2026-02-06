@@ -22,7 +22,8 @@ app.use(
   cors({
     origin: [
       "http://localhost:3000",
-      "https://radnus-ecommercefrontend.vercel.app"
+      "https://radnus-ecommercefrontend.vercel.app",
+       "https://www.radnusone.com"  
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE"],
