@@ -2,15 +2,26 @@ const multer = require("multer");
 const fs = require("fs");
 const path = require("path");
 
+// 🔥 ABSOLUTE BASE UPLOAD PATH
+const baseUploadPath = path.join(__dirname, "..", "uploads");
+
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    let uploadPath = "uploads/others";
+    let uploadPath = path.join(baseUploadPath, "others");
 
-    if (file.fieldname === "images") uploadPath = "uploads/products";
-    if (file.fieldname === "reviewImages") uploadPath = "uploads/reviews";
-    if (file.fieldname === "logo") uploadPath = "uploads/brands";
-    if (file.fieldname === "avatar") uploadPath = "uploads/avatars";
+    if (file.fieldname === "images")
+      uploadPath = path.join(baseUploadPath, "products");
 
+    if (file.fieldname === "reviewImages")
+      uploadPath = path.join(baseUploadPath, "reviews");
+
+    if (file.fieldname === "logo")
+      uploadPath = path.join(baseUploadPath, "brands");
+
+    if (file.fieldname === "avatar")
+      uploadPath = path.join(baseUploadPath, "avatars");
+
+    // ✅ CREATE FOLDER IF NOT EXISTS
     if (!fs.existsSync(uploadPath)) {
       fs.mkdirSync(uploadPath, { recursive: true });
     }
@@ -19,7 +30,8 @@ const storage = multer.diskStorage({
   },
 
   filename: function (req, file, cb) {
-    cb(null, Date.now() + "-" + file.originalname);
+    const cleanName = file.originalname.replace(/\s+/g, "-");
+    cb(null, `${Date.now()}-${cleanName}`);
   },
 });
 
@@ -36,6 +48,6 @@ module.exports = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB max
+    fileSize: 5 * 1024 * 1024, // 5MB
   },
 });
