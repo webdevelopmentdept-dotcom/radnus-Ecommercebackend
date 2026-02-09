@@ -13,10 +13,10 @@ app.use(
   express.static(path.join(__dirname, "uploads"))
 );
 
-// config
-if (process.env.NODE_ENV !== 'production') {
-    require('dotenv').config({ path: 'backend/config/config.env' });
-}
+// // config
+// if (process.env.NODE_ENV !== 'production') {
+//     require('dotenv').config({ path: 'backend/config/config.env' });
+// }
 
 app.use(
   cors({

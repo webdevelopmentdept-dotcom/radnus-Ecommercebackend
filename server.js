@@ -1,9 +1,8 @@
 const path = require("path");
-
 const dns = require("dns");
 dns.setServers(["1.1.1.1", "8.8.8.8"]);
 
-// 🔥 LOAD ENV FIRST (THIS WAS MISSING)
+// 🔥 LOAD ENV FIRST
 require("dotenv").config({
   path: path.join(__dirname, "config", "config.env"),
 });
@@ -11,8 +10,14 @@ require("dotenv").config({
 const express = require("express");
 const cloudinary = require("cloudinary");
 
-const app = require("./app");
+const app = require("./app"); // ✅ app FIRST load
 const connectDatabase = require("./config/database");
+
+// 🔥 SERVE UPLOADS (THIS IS THE FIX)
+app.use(
+  "/uploads",
+  express.static(path.join(__dirname, "uploads"))
+);
 
 // 🔹 Connect DB
 connectDatabase();
@@ -34,7 +39,6 @@ const PORT = process.env.PORT || 5000;
 
 const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log("RAZORPAY KEY:", process.env.RAZORPAY_KEY_ID); // 🔍 debug
 });
 
 // 🔹 Handle unhandled promise rejections

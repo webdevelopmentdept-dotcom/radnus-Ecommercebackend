@@ -83,6 +83,10 @@ exports.getProductDetails = asyncErrorHandler(async (req, res, next) => {
 
   product = product.toObject();
 
+   if (req.user?.role !== "admin") {
+    product = filterProductForUser(product, req.user?.role);
+  }
+
 
   product = filterProductForUser(product, req.user?.role);
 
