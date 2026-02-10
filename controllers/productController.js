@@ -4,8 +4,21 @@ const SearchFeatures = require('../utils/searchFeatures');
 const ErrorHandler = require('../utils/errorHandler');
 const Review = require("../models/reviewModel");
 const filterProductForUser = require("../utils/filterProductForUser");
-const path = require('path');
-const fs = require('fs');
+const cloudinary = require("cloudinary").v2;
+
+
+const uploadToCloudinary = (file, folder) => {
+  return cloudinary.uploader.upload(
+    `data:${file.mimetype};base64,${file.buffer.toString("base64")}`,
+    {
+  folder,
+  quality: "auto",
+  fetch_format: "auto",
+}
+
+  );
+};
+
 
 
 
@@ -83,12 +96,10 @@ exports.getProductDetails = asyncErrorHandler(async (req, res, next) => {
 
   product = product.toObject();
 
-   if (req.user?.role !== "admin") {
-    product = filterProductForUser(product, req.user?.role);
-  }
-
-
+  if (req.user?.role !== "admin") {
   product = filterProductForUser(product, req.user?.role);
+}
+
 
   res.status(200).json({
     success: true,
@@ -103,150 +114,161 @@ exports.getAdminProducts = asyncErrorHandler(async (req, res) => {
     res.status(200).json({ success: true, products });
 });
 
-// ================= CREATE PRODUCT (MULTER FIXED) =================
+// ================= CREATE PRODUCT (CLOUDINARY) =================
+// ================= CREATE PRODUCT (CLOUDINARY) =================
 exports.createProduct = asyncErrorHandler(async (req, res, next) => {
 
-    console.log("FILES 👉", req.files); // 🔥 DEBUG (temporary)
+  // 🔴 Validation
+  if (!req.files || !req.files.images || !req.files.logo) {
+    return next(new ErrorHandler("Product images or brand logo missing", 400));
+  }
 
-    if (!req.files?.images || !req.files?.logo) {
-        return next(new ErrorHandler("Images or Logo missing", 400));
-    }
+  // ================= PRODUCT IMAGES =================
+  let images = [];
 
-    // ---------- PRODUCT IMAGES ----------
- const images = req.files.images.map((file) => ({
-  public_id: file.filename,
-url: `/uploads/products/${file.filename}`,
-}));
+  for (let file of req.files.images) {
+    const result = await uploadToCloudinary(file, "ecommerce/products");
 
-
-    // ---------- BRAND LOGO ----------
-    const logoFile = req.files.logo[0];
-    req.body.brand = {
-  name: req.body.brand,
-  logo: {
-    public_id: logoFile.filename,
-    url: `/uploads/brands/${logoFile.filename}`,
-
-  },
-};
-
-
-    // ---------- HIGHLIGHTS ----------
-    if (req.body.highlights) {
-        req.body.highlights = Array.isArray(req.body.highlights)
-            ? req.body.highlights
-            : [req.body.highlights];
-    }
-
-    // ---------- SPECIFICATIONS ----------
-    let specs = [];
-    if (req.body.specifications) {
-        if (Array.isArray(req.body.specifications)) {
-            req.body.specifications.forEach((s) =>
-                specs.push(JSON.parse(s))
-            );
-        } else {
-            specs.push(JSON.parse(req.body.specifications));
-        }
-    }
-    req.body.specifications = specs;
-
-    // ---------- FINAL ----------
-    req.body.images = images;
-    req.body.user = req.user.id;
-   req.body.prices = {
-  distributor: Number(req.body.distributorPrice),
-  dealer: Number(req.body.dealerPrice),
-  customer: Number(req.body.customerPrice),
-};
-
-    req.body.stock = Number(req.body.stock);
-    req.body.warranty = Number(req.body.warranty);
-  
-
-    const product = await Product.create(req.body);
-
-    res.status(201).json({
-        success: true,
-        product,
+    images.push({
+      public_id: result.public_id,
+      url: result.secure_url,
     });
+  }
+
+  // ================= BRAND LOGO =================
+  const logoFile = req.files.logo[0];
+  const logoResult = await uploadToCloudinary(logoFile, "ecommerce/brands");
+
+
+  // ================= HIGHLIGHTS =================
+  if (req.body.highlights) {
+    req.body.highlights = Array.isArray(req.body.highlights)
+      ? req.body.highlights
+      : [req.body.highlights];
+  }
+
+  // ================= SPECIFICATIONS =================
+  let specifications = [];
+  if (req.body.specifications) {
+    if (Array.isArray(req.body.specifications)) {
+      req.body.specifications.forEach((s) =>
+        specifications.push(JSON.parse(s))
+      );
+    } else {
+      specifications.push(JSON.parse(req.body.specifications));
+    }
+  }
+
+  // ================= FINAL PRODUCT DATA =================
+ const brandName = req.body.brand;
+
+if (!brandName) {
+  return next(new ErrorHandler("Brand name is required", 400));
+}
+
+const productData = {
+  name: req.body.name,
+  description: req.body.description,
+  category: req.body.category,
+
+  brand: {
+    name: brandName,
+    logo: {
+      public_id: logoResult.public_id,
+      url: logoResult.secure_url,
+    },
+  },
+
+  images,
+  highlights: req.body.highlights || [],
+  specifications,
+
+  prices: {
+    distributor: Number(req.body.distributorPrice),
+    dealer: Number(req.body.dealerPrice),
+    customer: Number(req.body.customerPrice),
+  },
+
+  stock: Number(req.body.stock),
+  warranty: Number(req.body.warranty),
+  user: req.user.id,
+};
+
+
+  // ================= SAVE PRODUCT =================
+  const product = await Product.create(productData);
+
+  res.status(201).json({
+    success: true,
+    product,
+  });
 });
 
 
-// ================= UPDATE PRODUCT =================
+// ================= UPDATE PRODUCT (CLOUDINARY) =================
 exports.updateProduct = asyncErrorHandler(async (req, res, next) => {
+
   let product = await Product.findById(req.params.id);
-  if (!product) return next(new ErrorHandler("Product Not Found", 404));
-
-  // ===== DELETE SELECTED OLD IMAGES =====
-  if (req.body.deletedImages) {
-    const deletedImages = []
-      .concat(req.body.deletedImages)
-      .map((url) => url.trim());
-
-    for (let imgUrl of deletedImages) {
-      const imgPath = path.join(__dirname, "..", imgUrl);
-      if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
-    }
-
-    product.images = product.images.filter(
-      (img) => !deletedImages.includes(img.url)
-    );
+  if (!product) {
+    return next(new ErrorHandler("Product Not Found", 404));
   }
 
-if (req.files && req.files.images) {
-
-  // old images delete
-  if (Array.isArray(product.images)) {
-    for (let img of product.images) {
-      const imgPath = path.join(__dirname, "..", img.url);
-      if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
+  /* ================= DELETE SELECTED OLD IMAGES ================= */
+if (req.files?.images && Array.isArray(product.images)) {
+  for (let img of product.images) {
+    if (img.public_id) {
+      await cloudinary.uploader.destroy(img.public_id);
     }
   }
-
-  // new images save
-  product.images = req.files.images.map((file) => ({
-    public_id: file.filename,
-    url: `/uploads/products/${file.filename}`,
-  }));
 }
 
 
 
-  // ===== UPDATE LOGO =====
-  if (req.files && req.files.logo) {
-    const logoFile = req.files.logo[0];
 
-    if (
-      product.brand &&
-      product.brand.logo &&
-      typeof product.brand.logo.url === "string"
-    ) {
-      const oldLogoPath = path.join(__dirname, "..", product.brand.logo.url);
-      if (fs.existsSync(oldLogoPath)) fs.unlinkSync(oldLogoPath);
-    }
-
-    product.brand.logo = {
-      public_id: logoFile.filename,
-      url: `/uploads/brands/${logoFile.filename}`,
-    };
+if (req.files?.logo) {
+  if (product.brand?.logo?.public_id) {
+    await cloudinary.uploader.destroy(
+      product.brand.logo.public_id
+    );
   }
 
-  // ===== UPDATE FIELDS =====
+  const logoFile = req.files.logo[0];
+  const logoResult = await uploadToCloudinary(logoFile, "ecommerce/brands");
+
+  product.brand.logo = {
+    public_id: logoResult.public_id,
+    url: logoResult.secure_url,
+  };
+}
+
+
+
+  
+
+  /* ================= UPDATE FIELDS ================= */
   product.name = req.body.name;
   product.description = req.body.description;
+  product.category = req.body.category;
+  if (req.body.brand) {
+  product.brand = product.brand || {};
+  product.brand.name = req.body.brand;
+}
+
   product.prices = {
     distributor: Number(req.body.distributorPrice),
     dealer: Number(req.body.dealerPrice),
     customer: Number(req.body.customerPrice),
   };
+
   product.stock = Number(req.body.stock);
   product.warranty = Number(req.body.warranty);
-  product.category = req.body.category;
-  product.highlights = req.body.highlights; 
-  product.brand.name = req.body.brandname;
 
-  // specs
+  if (req.body.highlights) {
+    product.highlights = Array.isArray(req.body.highlights)
+      ? req.body.highlights
+      : [req.body.highlights];
+  }
+
   if (req.body.specifications) {
     const specs = []
       .concat(req.body.specifications)
@@ -263,32 +285,39 @@ if (req.files && req.files.images) {
 });
 
 
-// ================= DELETE PRODUCT =================
+// ================= DELETE PRODUCT (CLOUDINARY) =================
 exports.deleteProduct = asyncErrorHandler(async (req, res, next) => {
-  const product = await Product.findById(req.params.id);
-  if (!product) return next(new ErrorHandler("Product Not Found", 404));
 
+  const product = await Product.findById(req.params.id);
+  if (!product) {
+    return next(new ErrorHandler("Product Not Found", 404));
+  }
+
+  /* ================= DELETE PRODUCT IMAGES ================= */
   if (Array.isArray(product.images)) {
-    for (let img of product.images) {
-      if (img && typeof img.url === "string") {
-        const imgPath = path.join(__dirname, "..", img.url);
-        if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
-      }
+  for (let img of product.images) {
+    if (img.public_id) {
+      await cloudinary.uploader.destroy(img.public_id); // ✅ here
     }
   }
+}
 
-  if (
-    product.brand &&
-    product.brand.logo &&
-    typeof product.brand.logo.url === "string"
-  ) {
-    const logoPath = path.join(__dirname, "..", product.brand.logo.url);
-    if (fs.existsSync(logoPath)) fs.unlinkSync(logoPath);
-  }
+
+  /* ================= DELETE BRAND LOGO ================= */
+  if (product.brand?.logo?.public_id) {
+  await cloudinary.uploader.destroy(   // ✅ here
+    product.brand.logo.public_id
+  );
+}
+
 
   await product.deleteOne();
 
-  res.status(200).json({ success: true });
+  res.status(200).json({
+    success: true,
+    message: "Product deleted successfully",
+  });
 });
+
 
 
