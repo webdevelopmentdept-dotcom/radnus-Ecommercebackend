@@ -4,23 +4,48 @@ const sendToken = require("../utils/sendToken");
 const ErrorHandler = require("../utils/errorHandler");
 const sendEmail = require("../utils/sendEmail");
 const crypto = require("crypto");
-const fs = require("fs");
-const path = require("path");
+const cloudinary = require("cloudinary").v2;
+
+const uploadAvatarToCloudinary = (file) => {
+  return cloudinary.uploader.upload(
+    `data:${file.mimetype};base64,${file.buffer.toString("base64")}`,
+    {
+      folder: "ecommerce/avatars",
+      quality: "auto",
+      fetch_format: "auto",
+    }
+  );
+};
+
 
 
 // ================= REGISTER USER =================
 exports.registerUser = asyncErrorHandler(async (req, res) => {
   const { name, email, gender, password } = req.body;
 
-  const avatar = req.file
-    ? {
-        public_id: req.file.filename,
-        url: `/uploads/avatars/${req.file.filename}`,
-      }
-    : {
-        public_id: "default",
-        url: "/uploads/avatars/default.png",
-      };
+let avatar = {
+  public_id: "default",
+  url: process.env.DEFAULT_AVATAR_URL,
+};
+
+
+if (req.file) {
+  try {
+    const result = await uploadAvatarToCloudinary(req.file);
+
+    avatar = {
+      public_id: result.public_id,
+      url: result.secure_url,
+    };
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: "Avatar upload failed",
+    });
+  }
+}
+
+
 
  const user = await User.create({
   name,
@@ -151,20 +176,20 @@ exports.updateProfile = asyncErrorHandler(async (req, res, next) => {
 
   user.name = req.body.name || user.name;
 
-  if (req.file) {
-    // delete old avatar
-    if (user.avatar?.url && !user.avatar.url.includes("default")) {
-      const oldPath = path.join("backend", user.avatar.url);
-      if (fs.existsSync(oldPath)) {
-        fs.unlinkSync(oldPath);
-      }
-    }
-
-    user.avatar = {
-      public_id: req.file.filename,
-      url: `/uploads/avatars/${req.file.filename}`,
-    };
+ if (req.file) {
+  // 🔥 delete old avatar from cloudinary
+  if (user.avatar?.public_id && user.avatar.public_id !== "default") {
+    await cloudinary.uploader.destroy(user.avatar.public_id);
   }
+
+  const result = await uploadAvatarToCloudinary(req.file);
+
+  user.avatar = {
+    public_id: result.public_id,
+    url: result.secure_url,
+  };
+}
+
 
   await user.save();
 
@@ -228,10 +253,10 @@ exports.deleteUser = asyncErrorHandler(async (req, res, next) => {
     return next(new ErrorHandler("User not found", 404));
   }
 
-  if (user.avatar?.url && !user.avatar.url.includes("default")) {
-    const imgPath = path.join("backend", user.avatar.url);
-    if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
-  }
+if (user.avatar?.public_id && user.avatar.public_id !== "default") {
+  await cloudinary.uploader.destroy(user.avatar.public_id);
+}
+
 
   await user.deleteOne();
 
