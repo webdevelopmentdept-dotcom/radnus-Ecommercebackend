@@ -208,17 +208,50 @@ const productData = {
 // ================= UPDATE PRODUCT (CLOUDINARY) =================
 exports.updateProduct = asyncErrorHandler(async (req, res, next) => {
 
+
+   console.log("FILES 👉", req.files);
+console.log("BODY 👉", req.body);
+
   let product = await Product.findById(req.params.id);
   if (!product) {
     return next(new ErrorHandler("Product Not Found", 404));
   }
 
-  /* ================= DELETE SELECTED OLD IMAGES ================= */
-if (req.files?.images && Array.isArray(product.images)) {
-  for (let img of product.images) {
-    if (img.public_id) {
+
+// ================= DELETE SELECTED OLD IMAGES =================
+if (req.body.deletedImages) {
+  const deletedImages = Array.isArray(req.body.deletedImages)
+    ? req.body.deletedImages
+    : [req.body.deletedImages];
+
+  for (let url of deletedImages) {
+    const img = product.images.find((i) => i.url === url);
+
+    if (img?.public_id) {
       await cloudinary.uploader.destroy(img.public_id);
     }
+  }
+
+  product.images = product.images.filter(
+    (img) => !deletedImages.includes(img.url)
+  );
+}
+
+
+// ================= ADD NEW IMAGES =================
+if (req.files?.images) {
+  const files = req.files.images;
+
+  for (let file of files) {
+    const result = await uploadToCloudinary(
+      file,
+      "ecommerce/products"
+    );
+
+    product.images.push({
+      public_id: result.public_id,
+      url: result.secure_url,
+    });
   }
 }
 

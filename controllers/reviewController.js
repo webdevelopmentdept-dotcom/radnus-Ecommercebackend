@@ -1,6 +1,19 @@
 const Review = require("../models/reviewModel");
 const Product = require("../models/productModel");
 const Order = require("../models/orderModel");
+const cloudinary = require("cloudinary").v2;
+
+const uploadToCloudinary = (file, folder) => {
+  return cloudinary.uploader.upload(
+    `data:${file.mimetype};base64,${file.buffer.toString("base64")}`,
+    {
+      folder,
+      quality: "auto",
+      fetch_format: "auto",
+    }
+  );
+};
+
 
 // ================= CREATE REVIEW (AFTER DELIVERY) =================
 exports.createReviewAfterDelivery = async (req, res) => {
@@ -18,14 +31,22 @@ exports.createReviewAfterDelivery = async (req, res) => {
       });
     }
 
-        let images = [];
+   let images = [];
 
 if (req.files && req.files.length > 0) {
-  images = req.files.map((file) => ({
-    public_id: file.filename,
-    url: `/uploads/reviews/${file.filename}`,
-  }));
+  for (let file of req.files) {
+    const result = await uploadToCloudinary(
+      file,
+      "ecommerce/reviews"
+    );
+
+    images.push({
+      public_id: result.public_id,
+      url: result.secure_url,
+    });
+  }
 }
+
 
     // AUTH CHECK
     if (!req.user || !req.user._id) {
@@ -164,6 +185,15 @@ exports.deleteReview = async (req, res) => {
       });
     }
 
+    // 🔥 delete review images from cloudinary
+    if (review.images && review.images.length > 0) {
+      for (let img of review.images) {
+        if (img.public_id) {
+          await cloudinary.uploader.destroy(img.public_id);
+        }
+      }
+    }
+
     await review.deleteOne();
 
     res.status(200).json({
@@ -197,5 +227,6 @@ exports.getAllReviewsAdmin = async (req, res) => {
     });
   }
 };
+
 
 
