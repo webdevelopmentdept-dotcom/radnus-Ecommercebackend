@@ -16,7 +16,7 @@ const { isAuthenticatedUser, authorizeRoles } = require("../middlewares/auth");
 router.post(
   "/review/delivered",
   isAuthenticatedUser,
-   upload.array("images", 5),
+   upload.array("reviewImages", 5),
   createReviewAfterDelivery
 );
 

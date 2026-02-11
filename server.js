@@ -8,7 +8,7 @@ require("dotenv").config({
 });
 
 const express = require("express");
-const cloudinary = require("cloudinary");
+const cloudinary = require("cloudinary").v2;
 
 const app = require("./app"); // ✅ app FIRST load
 const connectDatabase = require("./config/database");

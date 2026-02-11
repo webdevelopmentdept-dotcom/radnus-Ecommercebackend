@@ -31,21 +31,31 @@ exports.createReviewAfterDelivery = async (req, res) => {
       });
     }
 
-   let images = [];
+ let images = [];
 
 if (req.files && req.files.length > 0) {
   for (let file of req.files) {
-    const result = await uploadToCloudinary(
-      file,
-      "ecommerce/reviews"
-    );
+    try {
+      const result = await uploadToCloudinary(
+        file,
+        "ecommerce/reviews"
+      );
 
-    images.push({
-      public_id: result.public_id,
-      url: result.secure_url,
-    });
+      images.push({
+        public_id: result.public_id,
+        url: result.secure_url,
+      });
+    } catch (err) {
+      console.error("❌ Cloudinary upload failed:", err);
+
+      return res.status(500).json({
+        success: false,
+        message: "Review image upload failed",
+      });
+    }
   }
 }
+
 
 
     // AUTH CHECK
